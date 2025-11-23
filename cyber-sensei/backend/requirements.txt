@@ -1,4 +1,4 @@
-# backend/requirements.txt
+﻿# backend/requirements.txt
 
 # Web Framework
 fastapi
@@ -7,7 +7,7 @@ uvicorn[standard]
 # Database
 sqlalchemy
 alembic
-psycopg2-binary  # PostgreSQL driver
+psycopg2-binary
 
 # Caching & Task Queue
 redis
@@ -29,12 +29,19 @@ passlib[bcrypt]
 pydantic-settings
 PyJWT
 
-# Environment & Utils
-python-dotenv
-pydantic
-pydantic-settings
+# Machine Learning
+tensorflow>=2.13.0
+tensorflow-hub>=0.14.0
+numpy>=1.24.0
+scikit-learn>=1.3.0
 
-# File handling
+# Logging & Monitoring
+elasticsearch>=8.0.0
+python-json-logger>=2.0.0
+
+# Utils
+python-dotenv
+pydantic>=2.0.0
 python-multipart
 aiofiles
 
@@ -42,6 +49,5 @@ aiofiles
 pytest
 pytest-asyncio
 httpx
-
-# Validation
 email-validator
+python-dateutil>=2.8.0

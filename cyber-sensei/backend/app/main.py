@@ -1,5 +1,6 @@
 import asyncio
 from typing import Optional
+from datetime import datetime
 
 import logging
 from time import perf_counter
@@ -10,20 +11,38 @@ from fastapi.responses import JSONResponse
 import os
 
 from .core.agent import setup_agent
-from .routers import users, learning, knowledge_base, labs, health
+from .routers import users, learning, knowledge_base, labs, health, entities
 from .database import create_tables
 from .seed import seed_database
 from .logging_config import setup_logging
+from .log_aggregation import LogConfig, setup_elasticsearch_indices
+from .ml_model import RecommendationEngine
+from .retry_logic import get_retry_metrics, get_dead_letter_queue, get_circuit_breaker
 
 # --- Logging Setup ---
 setup_logging()
 logger = logging.getLogger("cyber_sensei")
+
+# Setup Elasticsearch logging if available
+try:
+    es_url = os.getenv("ELASTICSEARCH_URL")
+    if es_url:
+        LogConfig.setup_logging("cyber-sensei", elasticsearch_url=es_url)
+        setup_elasticsearch_indices()
+except Exception as e:
+    logger.warning(f"Elasticsearch not available: {e}")
 
 app = FastAPI(
     title="Cyber-Sensei API",
     description="API for the Cyber-Sensei AI learning platform.",
     version="2.0.0"
 )
+
+# Initialize ML recommendation engine
+recommendation_engine = RecommendationEngine(
+    model_dir=os.getenv("ML_MODEL_DIR", "/app/models")
+)
+app.state.recommendation_engine = recommendation_engine
 
 # --- CORS Middleware ---
 # Allows our frontend (on different ports/hosts) to talk to the backend
@@ -57,6 +76,7 @@ app.include_router(learning.router)
 app.include_router(knowledge_base.router)
 app.include_router(labs.router)
 app.include_router(health.router)  # Health and monitoring endpoints
+app.include_router(entities.router)  # CRUD endpoints for all entities
 
 # --- Startup Event ---
 @app.on_event("startup")
@@ -151,6 +171,69 @@ async def websocket_endpoint(websocket: WebSocket, username: str):
             manager.disconnect(websocket)
     except Exception as e:
         print(f"Failed to establish WebSocket connection: {e}")
+
+
+# --- Monitoring & Diagnostic Endpoints ---
+@app.get("/api/monitoring/metrics")
+async def get_metrics():
+    """Get system metrics and retry statistics."""
+    return {
+        "retry_metrics": get_retry_metrics().get_stats(),
+        "circuit_breaker": get_circuit_breaker().get_state(),
+        "failed_tasks": len(get_dead_letter_queue().queue),
+        "timestamp": str(datetime.utcnow())
+    }
+
+
+@app.get("/api/monitoring/dead-letter-queue")
+async def get_dlq(limit: int = 100):
+    """Get recent failed tasks from dead letter queue."""
+    return {
+        "failed_tasks": get_dead_letter_queue().get_failed_tasks(limit),
+        "queue_size": len(get_dead_letter_queue().queue)
+    }
+
+
+@app.post("/api/recommendations/{user_id}")
+async def get_recommendations(user_id: str):
+    """Get personalized learning recommendations for user."""
+    try:
+        from .database import SessionLocal
+        from .models import Topic, UserProgress
+        
+        db = SessionLocal()
+        
+        # Get all available topics
+        all_topics = db.query(Topic).all()
+        topic_ids = [t.id for t in all_topics]
+        
+        # Get user's progress
+        user_progress = {}
+        for progress in db.query(UserProgress).filter(UserProgress.user_id == user_id).all():
+            user_progress[progress.topic_id] = {
+                "completion_percentage": progress.completion_percentage,
+                "quiz_score": 0,
+                "time_spent_seconds": 0,
+                "engagement_score": min(progress.completion_percentage / 100.0, 1.0)
+            }
+        
+        # Get recommendations
+        recommendations = recommendation_engine.get_recommendations(
+            user_id, topic_ids, user_progress
+        )
+        
+        db.close()
+        
+        return {
+            "user_id": user_id,
+            "recommendations": recommendations,
+            "timestamp": str(datetime.utcnow())
+        }
+    
+    except Exception as e:
+        logger.error(f"Error generating recommendations: {e}")
+        return {"error": str(e)}, 500
+
 
 # --- Root Endpoint ---
 @app.get("/")
