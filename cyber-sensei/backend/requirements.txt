@@ -7,6 +7,7 @@ uvicorn[standard]
 # Database
 sqlalchemy
 alembic
+psycopg2-binary  # PostgreSQL driver
 
 # Caching & Task Queue
 redis
@@ -22,6 +23,25 @@ sentence-transformers
 openai-whisper
 ffmpeg-python
 
+# Authentication & Security
+python-jose[cryptography]
+passlib[bcrypt]
+pydantic-settings
+PyJWT
+
 # Environment & Utils
 python-dotenv
+pydantic
 pydantic-settings
+
+# File handling
+python-multipart
+aiofiles
+
+# Testing
+pytest
+pytest-asyncio
+httpx
+
+# Validation
+email-validator

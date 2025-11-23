@@ -10,13 +10,14 @@ from fastapi.responses import JSONResponse
 import os
 
 from .core.agent import setup_agent
-from .routers import users, learning, knowledge_base, labs
+from .routers import users, learning, knowledge_base, labs, health
 from .database import create_tables
 from .seed import seed_database
+from .logging_config import setup_logging
 
-# --- App Initialization ---
+# --- Logging Setup ---
+setup_logging()
 logger = logging.getLogger("cyber_sensei")
-logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(
     title="Cyber-Sensei API",
@@ -55,6 +56,7 @@ app.include_router(users.router)
 app.include_router(learning.router)
 app.include_router(knowledge_base.router)
 app.include_router(labs.router)
+app.include_router(health.router)  # Health and monitoring endpoints
 
 # --- Startup Event ---
 @app.on_event("startup")
