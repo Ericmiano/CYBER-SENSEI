@@ -1,0 +1,27 @@
+# backend/requirements.txt
+
+# Web Framework
+fastapi
+uvicorn[standard]
+
+# Database
+sqlalchemy
+alembic
+
+# Caching & Task Queue
+redis
+celery
+
+# AI & Vector Store
+langchain
+langchain-core
+langchain-openai
+langchain-community
+chromadb
+sentence-transformers
+openai-whisper
+ffmpeg-python
+
+# Environment & Utils
+python-dotenv
+pydantic-settings

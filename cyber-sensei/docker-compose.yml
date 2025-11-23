@@ -1,0 +1,93 @@
+#cd version: '3.8'
+
+services:
+  # Redis for our Celery task queue
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Ollama for running local, free LLMs
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # Pull the model we want on startup
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull llama3 && tail -f /dev/null"]
+
+
+  # Our FastAPI backend application
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data # Mount the data directory to persist the DB and uploads
+    environment:
+      - DATABASE_URL=sqlite:///./data/cyber_sensei.db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_TASK_ALWAYS_EAGER=false
+      - USE_CELERY=true
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - DATA_DIR=/app/data
+      - KNOWLEDGE_DB_DIR=/app/data/knowledge_db
+      - TRANSCRIPT_DIR=/app/data/transcripts
+      - WHISPER_MODEL=base
+      - WHISPER_DEVICE=cpu
+    depends_on:
+      - redis
+      - ollama
+      - worker
+      
+
+# ... (redis, ollama, backend services) ...
+
+  # Our React frontend application
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_URL=http://backend:8000/api
+        - VITE_WS_URL=ws://backend:8000
+    ports:
+      - "3000:4173"
+    environment:
+      - VITE_API_URL=http://backend:8000/api
+      - VITE_WS_URL=ws://backend:8000
+    depends_on:
+      - backend
+
+  worker:
+    build: ./backend
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=1
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=sqlite:///./data/cyber_sensei.db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_TASK_ALWAYS_EAGER=false
+      - USE_CELERY=true
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - DATA_DIR=/app/data
+      - KNOWLEDGE_DB_DIR=/app/data/knowledge_db
+      - TRANSCRIPT_DIR=/app/data/transcripts
+      - WHISPER_MODEL=base
+      - WHISPER_DEVICE=cpu
+    depends_on:
+      - redis
+      - ollama
+
+# ... (volumes) ...
+
+
+volumes:
+  redis_data:
+  ollama_data:
