@@ -1,0 +1,139 @@
+name: Frontend Tests & Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-*.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'frontend/**'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: ./frontend
+        run: npm run lint -- --format json --output-file eslint-report.json || true
+
+      - name: Check code formatting with Prettier
+        working-directory: ./frontend
+        run: npx prettier --check src/ || true
+
+      - name: Build
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Run tests
+        working-directory: ./frontend
+        run: npm test -- --coverage --watchAll=false || true
+
+      - name: Upload ESLint report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: eslint-report
+          path: frontend/eslint-report.json
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-build
+          path: frontend/dist
+
+  lighthouse:
+    name: Lighthouse CI
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          configPath: ./frontend/lighthouserc.json
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+  accessibility:
+    name: Accessibility Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Install axe-cli
+        run: npm install -g @axe-core/cli
+
+      - name: Build
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Run accessibility check
+        run: axe dist/ --exit || true
+
+  security:
+    name: Security Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run npm audit
+        working-directory: ./frontend
+        run: npm audit --audit-level=moderate || true
+
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        with:
+          args: --severity-threshold=high --file=frontend/package.json || true

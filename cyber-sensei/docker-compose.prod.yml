@@ -1,0 +1,247 @@
+version: '3.8'
+
+x-common-variables: &common-variables
+  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/cyber_sensei
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/0
+  CELERY_RESULT_BACKEND: redis://redis:6379/0
+  ELASTICSEARCH_URL: http://elasticsearch:9200
+  ELASTICSEARCH_HOST: elasticsearch
+  ELASTICSEARCH_PORT: 9200
+  lama_BASE_URL: http://ollama:11434
+  DATA_DIR: /app/data
+  KNOWLEDGE_DB_DIR: /app/data/knowledge_db
+  TRANSCRIPT_DIR: /app/data/transcripts
+  WHISPER_MODEL: base
+  WHISPER_DEVICE: cpu
+
+services:
+  # Redis for task queue and caching
+  redis:
+    image: redis:7-alpine
+    container_name: cyber-sensei-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Elasticsearch for logging (lightweight configuration)
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.0
+    container_name: cyber-sensei-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xlock.security.enrollment.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Kibana for log visualization
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.5.0
+    container_name: cyber-sensei-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q 'available'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    container_name: cyber-sensei-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=cyber_sensei
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Ollama for running free LLMs locally
+  ollama:
+    image: ollama/ollama
+    container_name: cyber-sensei-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    entrypoint: ["/bin/sh", "-c", "ollama serve"]
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # FastAPI backend application
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cyber-sensei-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      <<: *common-variables
+      CELERY_TASK_ALWAYS_EAGER: false
+      USE_CELERY: true
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # React frontend application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:8000/api
+        - VITE_WS_URL=ws://localhost:8000
+    container_name: cyber-sensei-frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - VITE_API_URL=http://backend:8000/api
+      - VITE_WS_URL=ws://backend:8000
+    depends_on:
+      - backend
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Celery worker for async tasks
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cyber-sensei-worker
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
+    volumes:
+      - ./data:/app/data
+    environment:
+      <<: *common-variables
+      CELERY_TASK_ALWAYS_EAGER: false
+      USE_CELERY: true
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Celery beat scheduler
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cyber-sensei-beat
+    command: celery -A app.celery_app beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - ./data:/app/data
+    environment:
+      <<: *common-variables
+      CELERY_TASK_ALWAYS_EAGER: false
+      USE_CELERY: true
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  redis_data:
+  ollama_data:
+  elasticsearch_data:
+  postgres_data:
+
+networks:
+  default:
+    name: cyber-sensei-network

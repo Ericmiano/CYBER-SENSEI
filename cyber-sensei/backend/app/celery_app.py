@@ -1,6 +1,6 @@
 import os
-
 from celery import Celery
+from celery.schedules import crontab
 
 
 def _bool_env(name: str, default: str = "false") -> bool:
@@ -26,7 +26,31 @@ celery_app.conf.update(
     task_track_started=True,
     task_always_eager=_bool_env("CELERY_TASK_ALWAYS_EAGER", "false"),
     task_eager_propagates=True,
+    # Beat schedule for periodic tasks
+    beat_schedule={
+        'daily-summaries': {
+            'task': 'app.tasks.daily_learning_summary',
+            'schedule': crontab(hour=20, minute=0),  # 8 PM daily
+        },
+        'weekly-reports': {
+            'task': 'app.tasks.weekly_progress_report',
+            'schedule': crontab(day_of_week=1, hour=9, minute=0),  # Monday 9 AM
+        },
+        'refresh-recommendations': {
+            'task': 'app.tasks.refresh_all_user_recommendations',
+            'schedule': crontab(hour='*/6'),  # Every 6 hours
+        },
+        'cleanup-sessions': {
+            'task': 'app.tasks.cleanup_old_sessions',
+            'schedule': crontab(hour=2, minute=0),  # 2 AM daily
+        },
+        'archive-logs': {
+            'task': 'app.tasks.archive_old_logs',
+            'schedule': crontab(day_of_month=1, hour=3, minute=0),  # Monthly
+        },
+    }
 )
 
+celery_app.autodiscover_tasks(['app'])
 celery_app.autodiscover_tasks(["app.services"])
 

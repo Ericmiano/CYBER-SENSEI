@@ -37,9 +37,13 @@ def create_tables():
         Project,
         UserProgress,
         project_topics,
+        Content,
+        UserModuleEnrollment,
         KnowledgeDocument,
+        Document,
         QuizQuestion,
         QuizOption,
+        Annotation,
     )
 
     Base.metadata.create_all(bind=engine)

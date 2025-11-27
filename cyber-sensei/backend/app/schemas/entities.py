@@ -39,7 +39,7 @@ class ModuleCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: str = Field(..., min_length=1, max_length=2000)
     icon: Optional[str] = None
-    color: Optional[str] = Field(default="#3498db", regex="^#[0-9A-Fa-f]{6}$")
+    color: Optional[str] = Field(default="#3498db", pattern="^#[0-9A-Fa-f]{6}$")
     
     @validator("name")
     def name_not_empty(cls, v):
@@ -255,7 +255,7 @@ class UserProgressRead(BaseModel):
 # ==================== USER SCHEMAS ====================
 
 class UserPreferencesBase(BaseModel):
-    theme: str = Field(default="light", regex="^(light|dark)$")
+    theme: str = Field(default="light", pattern="^(light|dark)$")
     language: str = Field(default="en")
     notifications_enabled: bool = True
     daily_reminder: Optional[str] = None  # HH:MM format

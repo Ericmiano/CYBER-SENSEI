@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Table, DateTime
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from datetime import datetime
 from ..database import Base
 
 # Association table for many-to-many relationship between projects and topics
@@ -10,12 +12,40 @@ project_topics = Table(
     Column('topic_id', ForeignKey('topics.id'), primary_key=True)
 )
 
+class Content(Base):
+    """Base content/resource model for learning materials."""
+    __tablename__ = "content"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(Text)
+    content_type = Column(String(50), nullable=False)  # video, document, text, exercise, etc.
+    url = Column(String, nullable=True)
+    duration_minutes = Column(Integer, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+    
+    # Relationships
+    topic = relationship("Topic", back_populates="resources")
+    annotations = relationship("Annotation", back_populates="resource", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<Content(id={self.id}, title={self.title}, type={self.content_type})>"
+
 class Module(Base):
     __tablename__ = "modules"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True, nullable=False)
     description = Column(Text)
+    difficulty = Column(String, default="beginner")
+    icon = Column(String, nullable=True)
+    color = Column(String, nullable=True)
+    order = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     topics = relationship("Topic", back_populates="module")
+    enrolled_users = relationship("UserModuleEnrollment", back_populates="module", cascade="all, delete-orphan")
 
 class Topic(Base):
     __tablename__ = "topics"
@@ -24,9 +54,14 @@ class Topic(Base):
     name = Column(String, nullable=False)
     description = Column(Text)
     content = Column(Text) # Markdown-formatted learning content
+    difficulty = Column(String, default="beginner")
+    order = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     module = relationship("Module", back_populates="topics")
     projects = relationship("Project", secondary=project_topics, back_populates="topics")
     quiz_questions = relationship("QuizQuestion", back_populates="topic", cascade="all, delete-orphan")
+    resources = relationship("Content", back_populates="topic", cascade="all, delete-orphan")
 
 class Project(Base):
     __tablename__ = "projects"
@@ -38,3 +73,16 @@ class Project(Base):
     validation_script = Column(Text) # Python script for auto-grading
     difficulty_level = Column(String, default="beginner")
     topics = relationship("Topic", secondary=project_topics, back_populates="projects")
+
+class UserModuleEnrollment(Base):
+    __tablename__ = "user_module_enrollments"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    module_id = Column(Integer, ForeignKey("modules.id", ondelete="CASCADE"), nullable=False)
+    enrolled_at = Column(DateTime(timezone=True), server_default=func.now())
+    completion_percentage = Column(Integer, default=0)
+    status = Column(String, default="in_progress")  # in_progress, completed, dropped
+    
+    # Relationships
+    user = relationship("User", back_populates="enrollments")
+    module = relationship("Module", back_populates="enrolled_users")

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Determine the API URL based on environment
-const getApiUrl = () => {
+export const getApiUrl = () => {
   // In development Vite will proxy /api to the backend
   // In production, the backend runs on the same host or you set VITE_API_URL
   const apiUrl = import.meta.env.VITE_API_URL;
@@ -33,6 +33,20 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Attach auth token to requests when present
+api.interceptors.request.use((config) => {
+  try {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch (err) {
+    // localStorage may not be available in some environments
+  }
+  return config;
+});
 
 // --- User API ---
 export const getUserDashboard = (username) => 
@@ -99,3 +113,6 @@ export const getLabTopics = (moduleId) =>
 // --- Health Check ---
 export const healthCheck = () => 
   api.get(`/health`);
+
+// Export axios instance for direct calls (e.g., login)
+export { api };

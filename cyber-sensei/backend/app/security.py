@@ -8,13 +8,24 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
 from passlib.context import CryptContext
 import os
 
 # Configuration
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+# Configuration
+import secrets
+
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not SECRET_KEY:
+    if os.getenv("ENV") == "production":
+        raise ValueError("JWT_SECRET_KEY must be set in production environment")
+    # In development, generate a random key if not provided
+    SECRET_KEY = secrets.token_urlsafe(32)
+    # We can log a warning here if we had the logger set up, but print is fine for now or just silent
+    print(f"WARNING: Using generated SECRET_KEY: {SECRET_KEY[:5]}...")
+
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 480))
 
@@ -57,7 +68,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
-async def verify_token(credentials: HTTPAuthCredentials = Depends(security)) -> str:
+async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     """
     Verify JWT token from HTTP Authorization header.
     

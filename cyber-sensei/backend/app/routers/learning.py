@@ -9,6 +9,7 @@ from ..schemas.learning import (
     QuizPayload,
     QuizSubmission,
     TopicContentResponse,
+    QuizResultResponse,
 )
 from ..engines.curriculum import CurriculumEngine
 from ..engines.progress import ProgressTracker
@@ -26,7 +27,7 @@ def get_next_step(username: str, db: Session = Depends(get_db)):
     return LearningStepResponse(**step)
 
 
-@router.post("/{username}/submit-quiz")
+@router.post("/{username}/submit-quiz", response_model=QuizResultResponse)
 def submit_quiz(username: str, submission: QuizSubmission, db: Session = Depends(get_db)):
     """Endpoint to submit a quiz and update mastery via BKT."""
     tracker = ProgressTracker(db)

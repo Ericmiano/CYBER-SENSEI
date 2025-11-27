@@ -37,3 +37,17 @@ class TopicContentResponse(BaseModel):
     content: str | None = None
     module_name: str | None = None
     related_projects: list[str] = []
+
+
+class QuizResultResponse(BaseModel):
+    message: str
+    correct: int
+    total: int
+    final_mastery: str
+
+
+class QuizResultResponse(BaseModel):
+    message: str
+    correct: int
+    total: int
+    final_mastery: str

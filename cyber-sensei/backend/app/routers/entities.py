@@ -17,7 +17,7 @@ from datetime import datetime
 
 from ..database import SessionLocal
 from ..models import (
-    Module, Topic, Project, QuizQuestion, Resource, UserProgress, User
+    Module, Topic, Project, QuizQuestion, Content, UserProgress, User
 )
 from ..schemas import (
     ModuleCreate, ModuleUpdate, ModuleRead,

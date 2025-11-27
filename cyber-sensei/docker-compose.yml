@@ -1,4 +1,19 @@
-#cd version: '3.8'
+#version: '3.8'
+
+x-common-variables: &common-variables
+  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/cyber_sensei
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/0
+  CELERY_RESULT_BACKEND: redis://redis:6379/0
+  ELASTICSEARCH_URL: http://elasticsearch:9200
+  ELASTICSEARCH_HOST: elasticsearch
+  ELASTICSEARCH_PORT: 9200
+  OLLAMA_BASE_URL: http://ollama:11434
+  DATA_DIR: /app/data
+  KNOWLEDGE_DB_DIR: /app/data/knowledge_db
+  TRANSCRIPT_DIR: /app/data/transcripts
+  WHISPER_MODEL: base
+  WHISPER_DEVICE: cpu
 
 services:
   # Redis for our Celery task queue
@@ -8,6 +23,47 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Elasticsearch for centralized logging
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.0
+    container_name: elasticsearch
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Kibana for viewing logs and creating dashboards
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.5.0
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q 'available'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Ollama for running local, free LLMs
   ollama:
@@ -19,7 +75,6 @@ services:
     # Pull the model we want on startup
     entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull llama3 && tail -f /dev/null"]
 
-
   # Our FastAPI backend application
   backend:
     build: ./backend
@@ -28,12 +83,15 @@ services:
     volumes:
       - ./data:/app/data # Mount the data directory to persist the DB and uploads
     environment:
-      - DATABASE_URL=sqlite:///./data/cyber_sensei.db
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/cyber_sensei
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - CELERY_TASK_ALWAYS_EAGER=false
       - USE_CELERY=true
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
       - OLLAMA_BASE_URL=http://ollama:11434
       - DATA_DIR=/app/data
       - KNOWLEDGE_DB_DIR=/app/data/knowledge_db
@@ -41,12 +99,32 @@ services:
       - WHISPER_MODEL=base
       - WHISPER_DEVICE=cpu
     depends_on:
-      - redis
-      - ollama
-      - worker
-      
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      postgres:
+        condition: service_healthy
 
-# ... (redis, ollama, backend services) ...
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=cyber_sensei
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Our React frontend application
   frontend:
@@ -63,18 +141,22 @@ services:
     depends_on:
       - backend
 
+  # Celery worker
   worker:
     build: ./backend
-    command: celery -A app.celery_app worker --loglevel=info --concurrency=1
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=4
     volumes:
       - ./data:/app/data
     environment:
-      - DATABASE_URL=sqlite:///./data/cyber_sensei.db
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/cyber_sensei
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - CELERY_TASK_ALWAYS_EAGER=false
       - USE_CELERY=true
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
       - OLLAMA_BASE_URL=http://ollama:11434
       - DATA_DIR=/app/data
       - KNOWLEDGE_DB_DIR=/app/data/knowledge_db
@@ -82,12 +164,40 @@ services:
       - WHISPER_MODEL=base
       - WHISPER_DEVICE=cpu
     depends_on:
-      - redis
-      - ollama
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
 
-# ... (volumes) ...
-
+  # Celery beat (scheduler for periodic tasks)
+  beat:
+    build: ./backend
+    command: celery -A app.celery_app beat --loglevel=info
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/cyber_sensei
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_TASK_ALWAYS_EAGER=false
+      - USE_CELERY=true
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
 
 volumes:
   redis_data:
   ollama_data:
+  elasticsearch_data:
+  postgres_data:

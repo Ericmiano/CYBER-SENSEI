@@ -22,19 +22,33 @@ class ProgressTracker:
         """Updates mastery using BKT and returns the new probability."""
         progress = self.db.query(UserProgress).filter_by(user_id=user_id, topic_id=topic_id).first()
         if not progress:
-            progress = UserProgress(user_id=user_id, topic_id=topic_id, mastery_probability=BKT_DEFAULTS['p_init'])
+            progress = UserProgress(
+                user_id=user_id, 
+                topic_id=topic_id, 
+                mastery_probability=BKT_DEFAULTS['p_init'],
+                learn_probability=BKT_DEFAULTS['p_learn'],
+                guess_probability=BKT_DEFAULTS['p_guess'],
+                slip_probability=BKT_DEFAULTS['p_slip'],
+            )
             self.db.add(progress)
 
         p_known = progress.mastery_probability
+        p_slip = progress.slip_probability
+        p_guess = progress.guess_probability
+        p_learn = progress.learn_probability
+        
+        # Update attempt tracking
+        progress.total_attempts += 1
         if is_correct:
-            p_observed = (p_known * (1 - BKT_DEFAULTS['p_slip'])) + ((1 - p_known) * BKT_DEFAULTS['p_guess'])
-            p_known_new = (p_known * (1 - BKT_DEFAULTS['p_slip'])) / p_observed if p_observed > 0 else p_known
+            progress.correct_attempts += 1
+            p_observed = (p_known * (1 - p_slip)) + ((1 - p_known) * p_guess)
+            p_known_new = (p_known * (1 - p_slip)) / p_observed if p_observed > 0 else p_known
         else:
-            p_observed = (p_known * BKT_DEFAULTS['p_slip']) + ((1 - p_known) * (1 - BKT_DEFAULTS['p_guess']))
-            p_known_new = (p_known * BKT_DEFAULTS['p_slip']) / p_observed if p_observed > 0 else p_known
+            p_observed = (p_known * p_slip) + ((1 - p_known) * (1 - p_guess))
+            p_known_new = (p_known * p_slip) / p_observed if p_observed > 0 else p_known
 
         # Apply learning and update
-        progress.mastery_probability = p_known_new + (1 - p_known_new) * BKT_DEFAULTS['p_learn']
+        progress.mastery_probability = p_known_new + (1 - p_known_new) * p_learn
         progress.last_accessed_at = datetime.utcnow()
         
         # Update status and schedule next review

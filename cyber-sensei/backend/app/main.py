@@ -1,23 +1,50 @@
 import asyncio
+import os
 from typing import Optional
 from datetime import datetime
-
 import logging
 from time import perf_counter
 
+# FastAPI imports
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import os
+from fastapi.middleware.cors import CORSMiddleware
 
-from .core.agent import setup_agent
-from .routers import users, learning, knowledge_base, labs, health, entities
-from .database import create_tables
-from .seed import seed_database
+# App imports
 from .logging_config import setup_logging
-from .log_aggregation import LogConfig, setup_elasticsearch_indices
-from .ml_model import RecommendationEngine
 from .retry_logic import get_retry_metrics, get_dead_letter_queue, get_circuit_breaker
+from .ml_model import RecommendationEngine
+from .core.agent import setup_agent
+
+# Try to import LogConfig and elasticsearch setup
+try:
+    from .log_aggregation import LogConfig, setup_elasticsearch_indices
+except ImportError:
+    LogConfig = None
+    setup_elasticsearch_indices = lambda: None
+
+# Connection manager for WebSocket
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def send_personal_message(self, message: str, websocket: WebSocket):
+        await websocket.send_text(message)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+manager = ConnectionManager()
+_agent_executor_cache = None
 
 # --- Logging Setup ---
 setup_logging()
@@ -26,7 +53,7 @@ logger = logging.getLogger("cyber_sensei")
 # Setup Elasticsearch logging if available
 try:
     es_url = os.getenv("ELASTICSEARCH_URL")
-    if es_url:
+    if es_url and LogConfig:
         LogConfig.setup_logging("cyber-sensei", elasticsearch_url=es_url)
         setup_elasticsearch_indices()
 except Exception as e:
@@ -38,11 +65,29 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# Initialize ML recommendation engine
-recommendation_engine = RecommendationEngine(
-    model_dir=os.getenv("ML_MODEL_DIR", "/app/models")
-)
-app.state.recommendation_engine = recommendation_engine
+# --- Rate Limiting ---
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+# Initialize ML recommendation engine (skip during testing)
+if not os.getenv("SKIP_ML_ENGINE", "false").lower() == "true":
+    try:
+        recommendation_engine = RecommendationEngine(
+            model_dir=os.getenv("ML_MODEL_DIR", "/app/models")
+        )
+        app.state.recommendation_engine = recommendation_engine
+    except Exception as e:
+        logger.error(f"Failed to init ML engine: {e}")
+        app.state.recommendation_engine = None
+else:
+    app.state.recommendation_engine = None
 
 # --- CORS Middleware ---
 # Allows our frontend (on different ports/hosts) to talk to the backend
@@ -55,13 +100,6 @@ frontend_origins = [
     "http://127.0.0.1:8080",
 ]
 
-# Add Docker container names and IPs if running in Docker
-if os.getenv("DOCKER_ENV"):
-    frontend_origins.extend([
-        "http://frontend:5173",
-        "http://frontend:3000",
-    ])
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=frontend_origins,
@@ -70,50 +108,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Include Routers ---
-app.include_router(users.router)
-app.include_router(learning.router)
-app.include_router(knowledge_base.router)
-app.include_router(labs.router)
-app.include_router(health.router)  # Health and monitoring endpoints
-app.include_router(entities.router)  # CRUD endpoints for all entities
-
-# --- Startup Event ---
-@app.on_event("startup")
-def on_startup():
-    """Creates database tables on startup."""
-    try:
-        create_tables()
-        print("✓ Database tables initialized")
-        # Seed database with initial data (safe to call multiple times)
-        try:
-            seed_database()
-            print("✓ Database seeding completed")
-        except Exception as se:
-            # Log seeding errors but don't prevent app from starting
-            print(f"⚠️ Database seeding warning: {se}")
-    except Exception as e:
-        print(f"✗ Failed to initialize database: {e}")
-
-# --- WebSocket for Chat ---
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: list[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-
-    async def send_personal_message(self, message: str, websocket: WebSocket):
-        await websocket.send_text(message)
-
-manager = ConnectionManager()
-_agent_executor_cache = None
-
-
+# Add Docker container names and IPs if running in Docker
 def get_agent_executor():
     global _agent_executor_cache
     if _agent_executor_cache is None:

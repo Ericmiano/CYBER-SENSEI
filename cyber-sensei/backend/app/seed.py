@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from app.database import Base, SessionLocal, engine
+from app.core.security import hash_password
 from app.models import (
     Module,
     Project,
@@ -77,6 +78,9 @@ def ensure_sample_user(db: Session) -> User:
 
     user = User(
         username="testuser",
+        email="test@example.com",
+        hashed_password=hash_password("testpassword123"),
+        full_name="Test User",
         skill_level="beginner",
         learning_style="mixed",
         created_at=datetime.utcnow(),
@@ -98,24 +102,47 @@ def seed_core_content(db: Session):
         {
             "name": "Network Fundamentals",
             "description": "Learn the basics of networking including OSI model, TCP/IP, and packet analysis",
+            "difficulty": "beginner",
+            "icon": "🌐",
+            "color": "#1976D2",
+            "order": 1,
         },
         {
             "name": "System Administration",
             "description": "Master Windows and Linux system administration, user management, and security hardening",
+            "difficulty": "intermediate",
+            "icon": "🖥️",
+            "color": "#388E3C",
+            "order": 2,
         },
         {
             "name": "Web Security",
             "description": "Understand web vulnerabilities, OWASP Top 10, and secure web application development",
+            "difficulty": "intermediate",
+            "icon": "🔐",
+            "color": "#F57C00",
+            "order": 3,
         },
         {
             "name": "Cryptography",
             "description": "Learn encryption, hashing, digital signatures, and cryptographic protocols",
+            "difficulty": "advanced",
+            "icon": "🔒",
+            "color": "#7B1FA2",
+            "order": 4,
         },
     ]
 
     modules: list[Module] = []
     for mod in modules_data:
-        module = Module(name=mod["name"], description=mod["description"])
+        module = Module(
+            name=mod["name"],
+            description=mod["description"],
+            difficulty=mod.get("difficulty", "beginner"),
+            icon=mod.get("icon"),
+            color=mod.get("color"),
+            order=mod.get("order", 0),
+        )
         db.add(module)
         modules.append(module)
 
@@ -123,28 +150,28 @@ def seed_core_content(db: Session):
 
     topics_by_module = [
         [
-            {"name": "The OSI Model", "content": "# The OSI Model\n\nThe Open Systems Interconnection model..."},
-            {"name": "TCP/IP Basics", "content": "# TCP/IP Basics\n\nTransmission Control Protocol and Internet Protocol..."},
-            {"name": "DNS and DHCP", "content": "# DNS and DHCP\n\nDomain Name System and Dynamic Host Configuration Protocol..."},
-            {"name": "Network Protocols", "content": "# Network Protocols\n\nHTTP, HTTPS, FTP, SSH, and more..."},
+            {"name": "The OSI Model", "content": "# The OSI Model\n\nThe Open Systems Interconnection model...", "difficulty": "beginner", "order": 1},
+            {"name": "TCP/IP Basics", "content": "# TCP/IP Basics\n\nTransmission Control Protocol and Internet Protocol...", "difficulty": "beginner", "order": 2},
+            {"name": "DNS and DHCP", "content": "# DNS and DHCP\n\nDomain Name System and Dynamic Host Configuration Protocol...", "difficulty": "beginner", "order": 3},
+            {"name": "Network Protocols", "content": "# Network Protocols\n\nHTTP, HTTPS, FTP, SSH, and more...", "difficulty": "intermediate", "order": 4},
         ],
         [
-            {"name": "Linux Fundamentals", "content": "# Linux Fundamentals\n\nLinux is a free and open-source operating system..."},
-            {"name": "Windows Administration", "content": "# Windows Administration\n\nManaging Windows systems requires understanding Active Directory..."},
-            {"name": "User and Group Management", "content": "# User and Group Management\n\nProper management is crucial for security..."},
-            {"name": "Security Hardening", "content": "# Security Hardening\n\nHardening involves reducing attack surface..."},
+            {"name": "Linux Fundamentals", "content": "# Linux Fundamentals\n\nLinux is a free and open-source operating system...", "difficulty": "intermediate", "order": 1},
+            {"name": "Windows Administration", "content": "# Windows Administration\n\nManaging Windows systems requires understanding Active Directory...", "difficulty": "intermediate", "order": 2},
+            {"name": "User and Group Management", "content": "# User and Group Management\n\nProper management is crucial for security...", "difficulty": "intermediate", "order": 3},
+            {"name": "Security Hardening", "content": "# Security Hardening\n\nHardening involves reducing attack surface...", "difficulty": "advanced", "order": 4},
         ],
         [
-            {"name": "OWASP Top 10", "content": "# OWASP Top 10\n\nCritical security risks to web applications..."},
-            {"name": "SQL Injection", "content": "# SQL Injection\n\nAn attack that injects malicious SQL statements..."},
-            {"name": "Cross-Site Scripting (XSS)", "content": "# Cross-Site Scripting\n\nInjection of malicious scripts into trusted websites..."},
-            {"name": "Secure Coding Practices", "content": "# Secure Coding\n\nGuidelines to build resilient applications..."},
+            {"name": "OWASP Top 10", "content": "# OWASP Top 10\n\nCritical security risks to web applications...", "difficulty": "intermediate", "order": 1},
+            {"name": "SQL Injection", "content": "# SQL Injection\n\nAn attack that injects malicious SQL statements...", "difficulty": "intermediate", "order": 2},
+            {"name": "Cross-Site Scripting (XSS)", "content": "# Cross-Site Scripting\n\nInjection of malicious scripts into trusted websites...", "difficulty": "intermediate", "order": 3},
+            {"name": "Secure Coding Practices", "content": "# Secure Coding\n\nGuidelines to build resilient applications...", "difficulty": "advanced", "order": 4},
         ],
         [
-            {"name": "Symmetric Encryption", "content": "# Symmetric Encryption\n\nUses the same key for encryption and decryption..."},
-            {"name": "Asymmetric Encryption", "content": "# Asymmetric Encryption\n\nUses a public and private key pair..."},
-            {"name": "Hashing and Digital Signatures", "content": "# Hashing\n\nProduces fixed-size output from variable input..."},
-            {"name": "Cryptographic Protocols", "content": "# Protocols\n\nSSL/TLS, SSH, and more..."},
+            {"name": "Symmetric Encryption", "content": "# Symmetric Encryption\n\nUses the same key for encryption and decryption...", "difficulty": "advanced", "order": 1},
+            {"name": "Asymmetric Encryption", "content": "# Asymmetric Encryption\n\nUses a public and private key pair...", "difficulty": "advanced", "order": 2},
+            {"name": "Hashing and Digital Signatures", "content": "# Hashing\n\nProduces fixed-size output from variable input...", "difficulty": "advanced", "order": 3},
+            {"name": "Cryptographic Protocols", "content": "# Protocols\n\nSSL/TLS, SSH, and more...", "difficulty": "advanced", "order": 4},
         ],
     ]
 
@@ -156,6 +183,8 @@ def seed_core_content(db: Session):
                 name=topic_data["name"],
                 description=f"Learn about {topic_data['name']}",
                 content=topic_data["content"],
+                difficulty=topic_data.get("difficulty", "beginner"),
+                order=topic_data.get("order", 0),
             )
             db.add(topic)
             topics.append(topic)
