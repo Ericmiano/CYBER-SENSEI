@@ -10,17 +10,43 @@ Implements:
 """
 
 import numpy as np
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers, Sequential
+import os
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Check if we should skip ML engine (e.g. for testing or if TF is broken)
+SKIP_ML = os.getenv("SKIP_ML_ENGINE", "false").lower() == "true"
+
+try:
+    if SKIP_ML:
+        raise ImportError("ML Engine skipped via environment variable")
+        
+    import tensorflow as tf
+    from tensorflow import keras
+    from tensorflow.keras import layers, Sequential
+    TF_AVAILABLE = True
+except ImportError:
+    tf = None
+    keras = None
+    layers = None
+    Sequential = None
+    TF_AVAILABLE = False
+    if not SKIP_ML:
+        logger.warning("TensorFlow not available. ML features will be disabled.")
+except Exception as e:
+    # Catch other errors like protobuf version mismatch
+    tf = None
+    keras = None
+    layers = None
+    Sequential = None
+    TF_AVAILABLE = False
+    logger.warning(f"Error importing TensorFlow: {e}. ML features will be disabled.")
 import json
 import pickle
 from pathlib import Path
 from typing import Tuple, List, Dict, Optional
 from datetime import datetime
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 class UserProfileEncoder:
@@ -119,6 +145,10 @@ class RecommendationModel:
         
     def build(self, num_users: int, num_topics: int):
         """Build the neural network architecture."""
+        if not TF_AVAILABLE:
+            logger.warning("TensorFlow not available, cannot build model")
+            return
+
         self.model = Sequential([
             # Input layer with feature engineering
             layers.Input(shape=(7,)),  # user_idx, topic_idx, completion, quiz, time, engagement, bonus_features
@@ -297,7 +327,10 @@ class RecommendationModel:
         path = Path(model_dir)
         
         # Load model
-        self.model = keras.models.load_model(str(path / "model.keras"))
+        if TF_AVAILABLE:
+            self.model = keras.models.load_model(str(path / "model.keras"))
+        else:
+            logger.warning("TensorFlow not available, cannot load model")
         
         # Load encoder
         self.encoder.load(str(path / "encoder.json"))

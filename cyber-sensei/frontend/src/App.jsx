@@ -25,7 +25,7 @@ import CyberRangePage from './pages/CyberRangePage.jsx';
 import FileUploadComponent from './components/FileUploadComponent.jsx';
 import DeadLetterQueueDashboard from './pages/DeadLetterQueueDashboard.jsx';
 import LoginPage from './pages/LoginPage.jsx';
-import { UserContext } from './context/UserContext';
+import { UserContext, UserProvider } from './context/UserContext.jsx';
 
 const drawerWidth = 240;
 
@@ -97,7 +97,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <UserContext.Provider value={{ user, setUser }}>
+      <UserProvider value={{ user, setUser }}>
         <ErrorBoundary>
           <Box sx={{ display: 'flex' }}>
             <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
@@ -136,7 +136,7 @@ function App() {
             </Box>
           </Box>
         </ErrorBoundary>
-      </UserContext.Provider>
+      </UserProvider>
     </ThemeProvider>
   );
 }

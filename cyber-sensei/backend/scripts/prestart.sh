@@ -39,3 +39,7 @@ alembic upgrade head
 # Create initial data
 echo "Creating initial data..."
 python app/seed.py
+
+# Start the FastAPI server
+echo "Starting FastAPI server..."
+exec uvicorn app.main:app --host 0.0.0.0 --port 8000

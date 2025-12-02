@@ -23,7 +23,7 @@ import {
   VideoLibrary as VideoIcon,
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
-  Hourglass as HourglassIcon,
+  HourglassEmpty as HourglassIcon,
 } from '@mui/icons-material';
 import {
   addDocument,
