@@ -9,10 +9,9 @@ from fastapi.testclient import TestClient
 from datetime import datetime
 import json
 
-from ..main import app
-from ..database import SessionLocal
-from ..models import Module, Topic, QuizQuestion, Resource, Project
-from ..security import create_access_token
+from app.main import app
+from app.database import SessionLocal
+from app.core.security import create_access_token
 
 
 @pytest.fixture

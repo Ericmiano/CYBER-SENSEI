@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Boo
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from ..database import Base
+from sqlalchemy.ext.hybrid import hybrid_property
 
 # This table implements our BKT engine's data model
 class UserProgress(Base):
@@ -24,9 +25,23 @@ class UserProgress(Base):
     
     # Spaced Repetition Fields
     next_review_date = Column(DateTime(timezone=True), nullable=True)
+    started_at = Column(DateTime(timezone=True), server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
     last_accessed_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    # Completion tracking (percentage 0.0 - 100.0)
+    completion_percentage = Column(Float, default=0.0)
 
     # Relationships
     user = relationship("User", back_populates="progress")
     topic = relationship("Topic", backref="progress")
+
+    @hybrid_property
+    def computed_completion_percentage(self):
+        """Return the stored completion_percentage if set; otherwise compute from attempts."""
+        try:
+            if self.total_attempts and self.total_attempts > 0:
+                return (float(self.correct_attempts) / float(self.total_attempts)) * 100.0
+        except Exception:
+            pass
+        return float(self.completion_percentage or 0.0)

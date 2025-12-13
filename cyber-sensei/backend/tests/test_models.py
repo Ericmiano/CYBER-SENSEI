@@ -12,7 +12,7 @@ from app.database import Base
 from app.models.user import User
 from app.models.content import Topic, Quiz, Question
 from app.models.progress import UserProgress
-from app.models.knowledge import Document
+from app.models.document import Document
 
 
 # --- Test Database Setup ---

@@ -5,11 +5,12 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 
-from ..database import get_db
+from ..database import get_db, SessionLocal
 from ..models import Annotation, AnnotationType, Content, User
 from ..schemas import (
     AnnotationCreate, AnnotationUpdate, AnnotationRead
 )
+from ..security import get_current_user
 
 router = APIRouter(prefix="/api/annotations", tags=["annotations"])
 
@@ -84,6 +85,7 @@ async def list_user_annotations(
     resource_id: Optional[int] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    current_user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """

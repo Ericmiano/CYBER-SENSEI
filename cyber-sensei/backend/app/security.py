@@ -9,9 +9,13 @@ from typing import Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import jwt
 from passlib.context import CryptContext
 import os
+try:
+    # Prefer python-jose verify from core to keep token handling consistent
+    from .core.security import verify_token as core_verify_token
+except Exception:
+    core_verify_token = None
 
 # Configuration
 # Configuration
@@ -69,40 +73,29 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 
 async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    """Verify JWT token from HTTP Authorization header.
+
+    This delegates to the core security implementation when available so tests
+    that generate tokens with `app.core.security.create_access_token` will
+    validate correctly.
     """
-    Verify JWT token from HTTP Authorization header.
-    
-    Args:
-        credentials: HTTP Bearer token from Authorization header
-        
-    Returns:
-        User ID (subject) from token
-        
-    Raises:
-        HTTPException: If token is invalid or expired
-    """
+    if core_verify_token is not None:
+        return await core_verify_token(credentials)
+
     token = credentials.credentials
-    
+    # Fallback simple validation using PyJWT if core isn't available
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        import jwt as _pyjwt
+        payload = _pyjwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
-        
         if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
         return user_id
-        
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except jwt.InvalidTokenError:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",

@@ -22,10 +22,12 @@ async def health_check():
     Returns:
         status: "healthy" if service is running
     """
+    from datetime import datetime
     return {
         "status": "healthy",
         "service": "cyber-sensei-backend",
-        "version": "2.0.0"
+        "version": "2.0.0",
+        "timestamp": datetime.utcnow().isoformat() + "Z"
     }
 
 

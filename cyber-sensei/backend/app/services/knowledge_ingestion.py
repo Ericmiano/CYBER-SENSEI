@@ -151,3 +151,19 @@ def ingest_document(document_id: int):
 @celery_app.task(name="knowledge.ingest_document")
 def ingest_document_task(document_id: int):
     ingest_document(document_id)
+
+
+@celery_app.task(name="knowledge.transcribe_video")
+def transcribe_video_task(document_id: int):
+    """Task wrapper to transcribe a video document and index it."""
+    session = SessionLocal()
+    try:
+        doc = session.get(KnowledgeDocument, document_id)
+        if not doc:
+            return None
+        # Use existing handler which updates status and does indexing
+        _handle_video_document(doc, session)
+    except Exception:
+        logger.exception("transcribe_video_task failed for %s", document_id)
+    finally:
+        session.close()
