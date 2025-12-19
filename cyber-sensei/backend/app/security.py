@@ -10,6 +10,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
+from jose import JWTError, jwt
 import os
 try:
     # Prefer python-jose verify from core to keep token handling consistent

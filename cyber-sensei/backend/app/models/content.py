@@ -66,33 +66,9 @@ class Topic(Base):
 
     module = relationship("Module", back_populates="topics")
     projects = relationship("Project", secondary=project_topics, back_populates="topics")
-    # Keep both legacy quiz model relationship and new question model
     quiz_questions = relationship("QuizQuestion", back_populates="topic", cascade="all, delete-orphan")
-    questions = relationship("Question", back_populates="topic", cascade="all, delete-orphan")
     resources = relationship("Content", back_populates="topic", cascade="all, delete-orphan")
 
-class Quiz(Base):
-    __tablename__ = "quizzes"
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    description = Column(Text)
-    passing_score = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-class Question(Base):
-    __tablename__ = "questions"
-    id = Column(Integer, primary_key=True, index=True)
-    topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), nullable=True)
-    text = Column(Text, nullable=False)
-    question_type = Column(String, default="multiple_choice")
-    difficulty_level = Column(String, default="beginner")
-    options = Column(JSON, nullable=True)
-    correct_answer = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    topic = relationship("Topic", back_populates="questions")
 class Project(Base):
     __tablename__ = "projects"
     id = Column(Integer, primary_key=True, index=True)

@@ -8,9 +8,12 @@ import os
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/cyber_sensei.db")
 
 # Create the SQLAlchemy engine
-engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False} # Needed for SQLite
-)
+# check_same_thread is only needed for SQLite
+connect_args = {}
+if DATABASE_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 
 # Create a configured "Session" class
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

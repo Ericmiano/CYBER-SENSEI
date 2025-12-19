@@ -10,7 +10,8 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app.models.user import User
-from app.models.content import Topic, Quiz, Question
+from app.models.content import Topic
+from app.models.quiz import QuizQuestion
 from app.models.progress import UserProgress
 from app.models.document import Document
 
@@ -153,84 +154,6 @@ class TestTopicModel:
         assert topics[0].title == "First"
         assert topics[1].title == "Second"
         assert topics[2].title == "Third"
-
-
-# --- Question Model Tests ---
-class TestQuestionModel:
-    def test_question_creation(self, db):
-        """Test creating a question"""
-        question = Question(
-            text="What is a firewall?",
-            question_type="multiple_choice",
-            difficulty_level="beginner"
-        )
-        db.add(question)
-        db.commit()
-        db.refresh(question)
-        
-        assert question.id is not None
-        assert question.text == "What is a firewall?"
-
-    def test_question_options(self, db):
-        """Test question with multiple options"""
-        question = Question(
-            text="Choose the correct answer",
-            question_type="multiple_choice",
-            difficulty_level="beginner",
-            options=["Option A", "Option B", "Option C", "Option D"],
-            correct_answer="Option A"
-        )
-        db.add(question)
-        db.commit()
-        db.refresh(question)
-        
-        assert len(question.options) == 4
-        assert question.correct_answer == "Option A"
-
-    def test_question_types(self, db):
-        """Test different question types"""
-        types = ["multiple_choice", "true_false", "short_answer", "essay"]
-        
-        for qtype in types:
-            question = Question(text="Sample", question_type=qtype)
-            db.add(question)
-        
-        db.commit()
-        questions = db.query(Question).all()
-        
-        assert len(questions) == 4
-
-
-# --- Quiz Model Tests ---
-class TestQuizModel:
-    def test_quiz_creation(self, db):
-        """Test creating a quiz"""
-        quiz = Quiz(
-            title="Network Security Quiz",
-            description="Test your network security knowledge",
-            passing_score=70
-        )
-        db.add(quiz)
-        db.commit()
-        db.refresh(quiz)
-        
-        assert quiz.id is not None
-        assert quiz.passing_score == 70
-
-    def test_quiz_with_questions(self, db):
-        """Test quiz with associated questions"""
-        quiz = Quiz(title="Test Quiz")
-        questions = [
-            Question(text="Q1", question_type="multiple_choice"),
-            Question(text="Q2", question_type="true_false"),
-            Question(text="Q3", question_type="multiple_choice")
-        ]
-        
-        db.add(quiz)
-        db.add_all(questions)
-        db.commit()
-        
-        assert len(questions) == 3
 
 
 # --- UserProgress Model Tests ---
@@ -424,16 +347,17 @@ class TestDataTypes:
 
     def test_json_fields(self, db):
         """Test JSON field handling"""
-        question = Question(
-            text="Test",
-            options={"a": "Option A", "b": "Option B"}
+        question = QuizQuestion(
+            topic_id=1,
+            prompt="Test Question",
+            explanation="Test explanation"
         )
         db.add(question)
         db.commit()
         db.refresh(question)
         
         # JSON handling depends on database
-        assert isinstance(question.options, (dict, list, str))
+        assert question.prompt == "Test Question"
 
     def test_datetime_fields(self, db):
         """Test datetime field handling"""

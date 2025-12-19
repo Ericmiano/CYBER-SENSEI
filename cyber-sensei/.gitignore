@@ -5,20 +5,25 @@
 
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
 .Python
+*.egg-info/
+dist/
+build/
 venv/
-.venv/
-env/
+.venv
+.pytest_cache/
 
 # Database
 *.db
 *.sqlite
 *.sqlite3
-/data/
-/migrations/
+
+# Environment
+.env
+.env.local
 
 # Node.js
 node_modules/
@@ -53,3 +58,17 @@ logs/
 /data/transcripts/
 /data/uploads/
 uploads/
+
+# Test and verification scripts (ad-hoc, not production)
+verify_*.py
+*_test.db
+test_models.db
+
+# Audit and cleanup reports (temporary documentation)
+CLEANUP_*.md
+AUDIT_*.md
+FRESH_AUDIT*.md
+
+# Dead code that was removed
+ml_personalization.py
+DashboardPageEnhanced.jsx

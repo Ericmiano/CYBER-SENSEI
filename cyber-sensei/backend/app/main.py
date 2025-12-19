@@ -151,25 +151,21 @@ app.add_middleware(
 )
 
 # Include API routers
-try:
-    from .routers import users, learning, knowledge_base, labs, health, entities, search, annotations, gamification
+from .routers import users, learning, knowledge_base, labs, health, entities, search, annotations, gamification
 
-    app.include_router(users.router)
-    app.include_router(learning.router)
-    app.include_router(knowledge_base.router)
-    app.include_router(labs.router)
-    app.include_router(health.router)
-    app.include_router(entities.router)
-    app.include_router(search.router)
-    app.include_router(annotations.router)
-    # gamification router is optional
-    try:
-        app.include_router(gamification.router)
-    except Exception:
-        pass
+app.include_router(users.router)
+app.include_router(learning.router)
+app.include_router(knowledge_base.router)
+app.include_router(labs.router)
+app.include_router(health.router)
+app.include_router(entities.router)
+app.include_router(search.router)
+app.include_router(annotations.router)
+# gamification router is optional
+try:
+    app.include_router(gamification.router)
 except Exception:
-    # If routers can't be imported (e.g., during minimal tests), skip inclusion to avoid startup failure.
-    logger.warning("One or more routers failed to import; some endpoints may be unavailable in tests.")
+    pass
 
 # Add Docker container names and IPs if running in Docker
 def get_agent_executor():

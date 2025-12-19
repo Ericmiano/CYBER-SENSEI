@@ -8,7 +8,7 @@ x-common-variables: &common-variables
   ELASTICSEARCH_URL: http://elasticsearch:9200
   ELASTICSEARCH_HOST: elasticsearch
   ELASTICSEARCH_PORT: 9200
-  lama_BASE_URL: http://ollama:11434
+  OLLAMA_BASE_URL: http://ollama:11434
   DATA_DIR: /app/data
   KNOWLEDGE_DB_DIR: /app/data/knowledge_db
   TRANSCRIPT_DIR: /app/data/transcripts
@@ -43,7 +43,7 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - xlock.security.enrollment.enabled=false
+      - xpack.security.enrollment.enabled=false
       - "ES_JAVA_OPTS=-Xms256m -Xmx512m"
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
@@ -150,7 +150,7 @@ services:
         max-size: "10m"
         max-file: "3"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3

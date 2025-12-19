@@ -16,12 +16,6 @@ from ..schemas.user import (
 from ..core.security import hash_password, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 from ..engines.progress import ProgressTracker
 
-from ..database import get_db
-from ..models import User, UserModuleEnrollment
-from ..schemas.user import UserResponse, UserCreate, UserLogin, UserUpdate
-from ..core.security import hash_password, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
-from ..engines.progress import ProgressTracker
-
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 
