@@ -6,7 +6,7 @@ import logging
 from time import perf_counter
 
 # FastAPI imports
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -133,21 +133,27 @@ else:
 
 # --- CORS Middleware ---
 # Allows our frontend (on different ports/hosts) to talk to the backend
-frontend_origins = [
-    "http://localhost:5173",      # Vite dev server
-    "http://localhost:3000",      # Alternative dev port
-    "http://localhost:8080",      # Another alternative
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:8080",
-]
+frontend_origins_env = os.getenv("CORS_ORIGINS", "")
+if frontend_origins_env:
+    frontend_origins = [origin.strip() for origin in frontend_origins_env.split(",")]
+else:
+    frontend_origins = [
+        "http://localhost:5173",      # Vite dev server
+        "http://localhost:3000",       # Production frontend
+        "http://localhost:8080",       # Alternative dev port
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080",
+        "http://frontend:4173",        # Docker internal
+    ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=frontend_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["X-Process-Time"],
 )
 
 # Include API routers
@@ -253,40 +259,76 @@ async def get_recommendations(user_id: str):
     """Get personalized learning recommendations for user."""
     try:
         from .database import SessionLocal
-        from .models import Topic, UserProgress
+        from .models import Topic, UserProgress, User
         
         db = SessionLocal()
-        
-        # Get all available topics
-        all_topics = db.query(Topic).all()
-        topic_ids = [t.id for t in all_topics]
-        
-        # Get user's progress
-        user_progress = {}
-        for progress in db.query(UserProgress).filter(UserProgress.user_id == user_id).all():
-            user_progress[progress.topic_id] = {
-                "completion_percentage": progress.completion_percentage,
-                "quiz_score": 0,
-                "time_spent_seconds": 0,
-                "engagement_score": min(progress.completion_percentage / 100.0, 1.0)
+        try:
+            # Validate user exists
+            user = db.query(User).filter(User.id == int(user_id) if user_id.isdigit() else False).first()
+            if not user:
+                # Try by username
+                user = db.query(User).filter(User.username == user_id).first()
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+            
+            # Get all available topics
+            all_topics = db.query(Topic).all()
+            topic_ids = [t.id for t in all_topics]
+            
+            # Get user's progress
+            user_progress = {}
+            for progress in db.query(UserProgress).filter(UserProgress.user_id == user.id).all():
+                user_progress[progress.topic_id] = {
+                    "completion_percentage": progress.completion_percentage or 0,
+                    "quiz_score": 0,
+                    "time_spent_seconds": 0,
+                    "engagement_score": min((progress.completion_percentage or 0) / 100.0, 1.0)
+                }
+            
+            # Get recommendations using ML engine if available, otherwise use simple heuristic
+            recommendation_engine = app.state.recommendation_engine
+            if recommendation_engine:
+                recommendations = recommendation_engine.get_recommendations(
+                    str(user.id), topic_ids, user_progress
+                )
+            else:
+                # Fallback: simple heuristic-based recommendations
+                # Recommend topics user hasn't started or has low completion
+                started_topic_ids = set(user_progress.keys())
+                unstarted_topics = [t for t in all_topics if t.id not in started_topic_ids]
+                in_progress_topics = [
+                    t for t in all_topics 
+                    if t.id in started_topic_ids and user_progress.get(t.id, {}).get("completion_percentage", 0) < 50
+                ]
+                
+                # Prioritize unstarted topics, then in-progress
+                recommended = unstarted_topics[:5] + in_progress_topics[:3]
+                recommendations = [
+                    {
+                        "topic_id": t.id,
+                        "topic_name": t.name,
+                        "reason": "Not started" if t.id not in started_topic_ids else "In progress",
+                        "score": 0.8 if t.id not in started_topic_ids else 0.6
+                    }
+                    for t in recommended[:5]
+                ]
+            
+            return {
+                "user_id": str(user.id),
+                "recommendations": recommendations,
+                "timestamp": datetime.utcnow().isoformat()
             }
-        
-        # Get recommendations
-        recommendations = recommendation_engine.get_recommendations(
-            user_id, topic_ids, user_progress
-        )
-        
-        db.close()
-        
-        return {
-            "user_id": user_id,
-            "recommendations": recommendations,
-            "timestamp": str(datetime.utcnow())
-        }
+        finally:
+            db.close()
     
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error generating recommendations: {e}")
-        return {"error": str(e)}, 500
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e), "detail": "Failed to generate recommendations"}
+        )
 
 
 # --- Root Endpoint ---

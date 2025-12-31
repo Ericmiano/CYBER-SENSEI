@@ -120,3 +120,19 @@ async def get_current_user(user_id: str = Depends(verify_token)) -> str:
             detail="Could not validate credentials"
         )
     return user_id
+
+
+async def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))
+) -> Optional[str]:
+    """
+    Get current authenticated user ID if token is provided, otherwise return None.
+    Useful for endpoints that work with or without authentication.
+    """
+    if not credentials:
+        return None
+    
+    try:
+        return await verify_token(credentials)
+    except HTTPException:
+        return None

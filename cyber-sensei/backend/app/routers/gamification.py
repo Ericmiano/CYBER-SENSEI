@@ -18,7 +18,7 @@ class BadgeSchema(BaseModel):
     awarded_at: datetime | None = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 @router.get("/badges", response_model=List[BadgeSchema])
 def get_all_badges(db: Session = Depends(get_db)):
@@ -30,7 +30,7 @@ def get_user_badges(user_id: int, db: Session = Depends(get_db)):
     
     result = []
     for ub in user_badges:
-        badge_data = BadgeSchema.from_orm(ub.badge)
+        badge_data = BadgeSchema.model_validate(ub.badge)
         badge_data.awarded_at = ub.awarded_at
         result.append(badge_data)
         

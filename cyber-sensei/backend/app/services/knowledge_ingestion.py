@@ -139,11 +139,15 @@ def ingest_document(document_id: int):
 
     except Exception as exc:  # pylint: disable=broad-except
         logger.exception("Ingestion failed for doc %s: %s", document_id, exc)
-        doc = session.get(KnowledgeDocument, document_id)
-        if doc:
-            doc.status = "failed"
-            doc.notes = f"Ingestion failed: {exc}"
-        session.commit()
+        try:
+            doc = session.get(KnowledgeDocument, document_id)
+            if doc:
+                doc.status = "failed"
+                doc.notes = f"Ingestion failed: {exc}"
+            session.commit()
+        except Exception as commit_error:
+            logger.error(f"Failed to update document status: {commit_error}")
+            session.rollback()
     finally:
         session.close()
 

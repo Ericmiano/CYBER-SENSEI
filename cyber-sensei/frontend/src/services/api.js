@@ -24,13 +24,43 @@ const api = axios.create({
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('API Error:', error);
-    if (error.response?.status === 404) {
-      return Promise.reject(new Error('Resource not found'));
-    } else if (error.response?.status === 500) {
-      return Promise.reject(new Error('Server error. Please try again later.'));
+    // Only log in development
+    if (import.meta.env.DEV) {
+      console.error('API Error:', error);
     }
-    return Promise.reject(error);
+    
+    // Handle different error types
+    if (error.response) {
+      // Server responded with error status
+      const status = error.response.status;
+      const detail = error.response.data?.detail || error.response.data?.message || 'Unknown error';
+      
+      if (status === 401) {
+        // Unauthorized - clear token and redirect to login
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user');
+        return Promise.reject(new Error('Session expired. Please login again.'));
+      } else if (status === 403) {
+        return Promise.reject(new Error('Access forbidden.'));
+      } else if (status === 404) {
+        return Promise.reject(new Error(detail || 'Resource not found'));
+      } else if (status === 400) {
+        return Promise.reject(new Error(detail || 'Invalid request'));
+      } else if (status === 413) {
+        return Promise.reject(new Error('File too large. Please upload a smaller file.'));
+      } else if (status === 429) {
+        return Promise.reject(new Error('Too many requests. Please try again later.'));
+      } else if (status >= 500) {
+        return Promise.reject(new Error(detail || 'Server error. Please try again later.'));
+      }
+      return Promise.reject(new Error(detail));
+    } else if (error.request) {
+      // Request made but no response
+      return Promise.reject(new Error('Network error. Please check your connection.'));
+    } else {
+      // Error in request setup
+      return Promise.reject(new Error(error.message || 'An unexpected error occurred'));
+    }
   }
 );
 

@@ -314,7 +314,8 @@ def ensure_quiz_bank(db: Session):
 
 def seed_database():
     """Populate the database with initial test data."""
-    Base.metadata.create_all(bind=engine)
+    # Don't create tables here - let Alembic handle migrations
+    # Base.metadata.create_all(bind=engine)  # Commented out - use migrations instead
 
     db = SessionLocal()
     try:
@@ -327,7 +328,9 @@ def seed_database():
     except Exception as exc:  # pylint: disable=broad-except
         db.rollback()
         print(f"✗ Error seeding database: {exc}")
-        raise
+        # Don't raise - allow startup to continue even if seeding fails
+        import traceback
+        traceback.print_exc()
     finally:
         db.close()
 

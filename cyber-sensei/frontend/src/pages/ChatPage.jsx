@@ -51,12 +51,16 @@ const ChatPage = ({ username }) => {
   const connectWebSocket = useCallback(() => {
     try {
       const wsUrl = buildWsUrl();
-      console.log('Connecting to', wsUrl);
+      if (import.meta.env.DEV) {
+        console.log('Connecting to', wsUrl);
+      }
       ws.current = new WebSocket(wsUrl);
 
       ws.current.onopen = () => {
         reconnectAttempts.current = 0;
-        console.log('WebSocket connected');
+        if (import.meta.env.DEV) {
+          console.log('WebSocket connected');
+        }
         setIsConnected(true);
         setError(null);
         setMessages([
@@ -69,32 +73,61 @@ const ChatPage = ({ username }) => {
       };
 
       ws.current.onmessage = (event) => {
-        const receivedMessage = {
-          sender: 'Cyber-Sensei',
-          text: event.data,
-          timestamp: new Date(),
-        };
-        setMessages((prevMessages) => [...prevMessages, receivedMessage]);
-        setLoading(false);
+        try {
+          const receivedMessage = {
+            sender: 'Cyber-Sensei',
+            text: event.data || 'No response received',
+            timestamp: new Date(),
+          };
+          setMessages((prevMessages) => [...prevMessages, receivedMessage]);
+          setLoading(false);
+        } catch (err) {
+          if (import.meta.env.DEV) {
+            console.error('Error processing message:', err);
+          }
+          setLoading(false);
+        }
       };
 
       ws.current.onerror = (event) => {
-        console.error('WebSocket error:', event);
+        if (import.meta.env.DEV) {
+          console.error('WebSocket error:', event);
+        }
         setError('Connection error. Attempting to reconnect...');
         setLoading(false);
       };
 
-      ws.current.onclose = () => {
-        console.log('WebSocket disconnected');
+      ws.current.onclose = (event) => {
+        if (import.meta.env.DEV) {
+          console.log('WebSocket disconnected', event.code, event.reason);
+        }
         setIsConnected(false);
+        
+        // Don't reconnect if it was a normal closure or authentication error
+        if (event.code === 1000 || event.code === 1008) {
+          setError('Connection closed. Please refresh the page.');
+          return;
+        }
+        
         reconnectAttempts.current += 1;
+        if (reconnectAttempts.current > 10) {
+          setError('Failed to reconnect after multiple attempts. Please refresh the page.');
+          return;
+        }
         const delay = Math.min(3000 * reconnectAttempts.current, 15000);
         reconnectTimeout.current = setTimeout(connectWebSocket, delay);
       };
     } catch (err) {
-      console.error('WebSocket connection error:', err);
+      if (import.meta.env.DEV) {
+        console.error('WebSocket connection error:', err);
+      }
       setError('Failed to connect. Retrying...');
-      reconnectTimeout.current = setTimeout(connectWebSocket, 5000);
+      reconnectAttempts.current += 1;
+      if (reconnectAttempts.current <= 10) {
+        reconnectTimeout.current = setTimeout(connectWebSocket, 5000);
+      } else {
+        setError('Failed to establish connection. Please check your network and refresh the page.');
+      }
     }
   }, [buildWsUrl]);
 

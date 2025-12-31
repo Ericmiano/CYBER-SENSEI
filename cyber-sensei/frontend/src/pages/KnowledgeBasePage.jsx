@@ -31,8 +31,10 @@ import {
   uploadVideo,
   getKnowledgeBaseItems,
 } from '../services/api';
+import { UserContext } from '../context/UserContext';
 
 const KnowledgeBasePage = () => {
+  const { user } = React.useContext(UserContext);
   const [tabValue, setTabValue] = useState(0);
   const [filePath, setFilePath] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
@@ -41,7 +43,7 @@ const KnowledgeBasePage = () => {
   const [loading, setLoading] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
   const [error, setError] = useState('');
-  const username = 'testuser';
+  const username = user?.username || null;
 
   const fetchDocuments = useCallback(async () => {
     try {
@@ -49,8 +51,11 @@ const KnowledgeBasePage = () => {
       const response = await getKnowledgeBaseItems();
       setDocuments(response.data || []);
     } catch (err) {
-      console.error('Error loading documents:', err);
-      setError('Failed to load knowledge base items.');
+      const errorMessage = err.message || 'Failed to load knowledge base items.';
+      if (import.meta.env.DEV) {
+        console.error('Error loading documents:', err);
+      }
+      setError(errorMessage);
     } finally {
       setLoadingList(false);
     }
@@ -97,8 +102,11 @@ const KnowledgeBasePage = () => {
 
       await fetchDocuments();
     } catch (err) {
-      console.error('Error adding document:', err);
-      setError(err.message || 'Error adding document. See console for details.');
+      const errorMessage = err.message || 'Error adding document. Please try again.';
+      if (import.meta.env.DEV) {
+        console.error('Error adding document:', err);
+      }
+      setError(errorMessage);
       setStatus('');
     } finally {
       setLoading(false);
@@ -122,8 +130,11 @@ const KnowledgeBasePage = () => {
       setStatus(`Video "${response.data.filename}" registered. Transcription pending.`);
       await fetchDocuments();
     } catch (err) {
-      console.error('Error uploading video:', err);
-      setError('Error processing video. Please try again.');
+      const errorMessage = err.message || 'Error processing video. Please try again.';
+      if (import.meta.env.DEV) {
+        console.error('Error uploading video:', err);
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

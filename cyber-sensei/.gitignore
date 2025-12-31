@@ -21,6 +21,11 @@ venv/
 *.sqlite
 *.sqlite3
 
+# ChromaDB knowledge base (runtime-generated, should not be versioned)
+data/knowledge_db/
+**/data/knowledge_db/
+backend/data/knowledge_db/
+
 # Environment
 .env
 .env.local

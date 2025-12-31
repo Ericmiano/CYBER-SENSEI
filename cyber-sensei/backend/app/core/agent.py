@@ -1,6 +1,10 @@
 import os
+import logging
+import requests
 from langchain_openai import ChatOpenAI
 from langchain_community.llms import Ollama
+
+logger = logging.getLogger(__name__)
 
 try:
     # Older LangChain versions expose this helper
@@ -63,19 +67,30 @@ def get_model(task_complexity: str):
     """Routes a request to the appropriate model."""
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     
-    if task_complexity == 'simple':
-        try:
-            # Use a local model for simple tasks
+    # Try Ollama first for all tasks (free and local)
+    try:
+        import requests
+        # Check if Ollama is available
+        response = requests.get(f"{ollama_base_url}/api/tags", timeout=2)
+        if response.status_code == 200:
             return Ollama(base_url=ollama_base_url, model="llama3")
-        except Exception:
-            # Fallback if Ollama is not available
-            print("Ollama not available, falling back to cloud model.")
-            pass
+    except Exception:
+        pass  # Ollama not available, try OpenAI
     
-    # Default to a powerful cloud model for complex tasks or fallback
-    if not os.getenv("OPENAI_API_KEY"):
-        raise ValueError("OPENAI_API_KEY not found in environment variables.")
-    return ChatOpenAI(model="gpt-4-turbo", temperature=0)
+    # Fallback to OpenAI if available
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if openai_key:
+        try:
+            return ChatOpenAI(model="gpt-4-turbo", temperature=0, api_key=openai_key)
+        except Exception as e:
+            logger.warning(f"OpenAI initialization failed: {e}")
+    
+    # Last resort: raise informative error
+    raise RuntimeError(
+        "No LLM available. Please either:\n"
+        "1. Start Ollama service (docker-compose up ollama)\n"
+        "2. Set OPENAI_API_KEY environment variable"
+    )
 
 # --- Agent Setup ---
 def setup_agent():

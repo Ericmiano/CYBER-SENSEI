@@ -32,8 +32,11 @@ const DashboardPage = ({ username }) => {
         setDashboardData(response.data);
         setError(null);
       } catch (err) {
-        console.error('Error fetching dashboard:', err);
-        setError('Failed to load dashboard data. Please try again.');
+        const errorMessage = err.message || 'Failed to load dashboard data. Please try again.';
+        if (import.meta.env.DEV) {
+          console.error('Error fetching dashboard:', err);
+        }
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }

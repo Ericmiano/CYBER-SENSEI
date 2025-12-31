@@ -13,12 +13,8 @@ class CurriculumEngine:
     def get_next_step(self, username: str) -> dict:
         """Determines the next learning step for the user."""
         user = self.db.query(User).filter_by(username=username).first()
-        if not user: return {"type": "error", "message": "User not found."}
-
-        # 1. Check for due reviews (Spaced Repetition)
-        """Determines the next learning step for the user."""
-        user = self.db.query(User).filter_by(username=username).first()
-        if not user: return {"type": "error", "message": "User not found."}
+        if not user: 
+            return {"type": "error", "message": "User not found."}
 
         # 1. Check for due reviews (Spaced Repetition)
         due_review = self.db.query(UserProgress, Topic).join(Topic).filter(
