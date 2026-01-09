@@ -170,6 +170,16 @@ app.include_router(annotations.router)
 # gamification router is optional
 try:
     app.include_router(gamification.router)
+
+
+from .schemas.user import TokenResponse
+from .routers.users import login_user
+
+def get_progress(db: Session = Depends(get_db)):
+    return db.query(UserProgress).all()
+
+app.add_api_route("/api/progress", get_progress, methods=["GET"])
+app.add_api_route("/api/auth/login", login_user, methods=["POST"], response_model=TokenResponse)
 except Exception:
     pass
 

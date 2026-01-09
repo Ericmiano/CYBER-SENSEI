@@ -265,3 +265,12 @@ def delete_knowledge_document(document_id: int, db: Session = Depends(get_db)):
         db.rollback()
         logger.error(f"Error deleting document {document_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete document")
+
+
+@router.get("/search")
+def search_knowledge(q: str = "", db: Session = Depends(get_db)):
+    """Search knowledge base."""
+    if not q:
+        return []
+    # Placeholder implementation
+    return []

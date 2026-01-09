@@ -5,14 +5,18 @@ Handles test database setup and fixtures
 
 import os
 import sys
+from pathlib import Path
 
 # Set test environment first
 os.environ["ENVIRONMENT"] = "test"
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["SKIP_ML_ENGINE"] = "true"
 
-# Add backend to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../backend'))
+# Add backend to path (resolve relative to repo root)
+ROOT = Path(__file__).resolve().parents[1]
+BACKEND_PATH = ROOT / 'backend'
+if str(BACKEND_PATH) not in sys.path:
+    sys.path.insert(0, str(BACKEND_PATH))
 
 import pytest
 from starlette.testclient import TestClient

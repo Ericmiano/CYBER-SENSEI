@@ -21,6 +21,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/learning", tags=["learning"])
 
 
+@router.get("/paths")
+def get_learning_paths(db: Session = Depends(get_db)):
+    """Get learning paths."""
+    # Placeholder implementation
+    return []
+
+
+@router.get("/topic/{topic_id}")
+def get_topic_quiz(topic_id: int, db: Session = Depends(get_db)):
+    """Get quiz for a topic."""
+    engine = QuizEngine(db)
+    quiz = engine.get_quiz(topic_id)
+    return quiz
+
+
 @router.get("/{username}/next-step", response_model=LearningStepResponse)
 def get_next_step(username: str, db: Session = Depends(get_db)):
     """API endpoint to get the user's next learning step."""

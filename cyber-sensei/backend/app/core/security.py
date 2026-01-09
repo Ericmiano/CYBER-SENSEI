@@ -18,6 +18,8 @@ security = HTTPBearer()
 
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt."""
+    if len(password) > 72:
+        password = password[:72]
     return pwd_context.hash(password)
 
 

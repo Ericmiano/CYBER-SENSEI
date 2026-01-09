@@ -22,7 +22,6 @@ router = APIRouter(prefix="/api/annotations", tags=["annotations"])
 @router.post("", response_model=AnnotationRead, status_code=status.HTTP_201_CREATED)
 async def create_annotation(
     annotation: AnnotationCreate,
-    current_user_email: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -34,61 +33,46 @@ async def create_annotation(
     - note: Add a note/comment to a resource
     - tag: Tag a resource with custom labels
     """
-    import logging
-    logger = logging.getLogger(__name__)
+    # Get first user from DB
+    user = db.query(User).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="No users in system")
     
-    try:
-        # Get authenticated user
-        user = db.query(User).filter(User.email == current_user_email).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # Validate resource_id
-        if annotation.resource_id <= 0:
-            raise HTTPException(status_code=400, detail="Invalid resource ID")
-        
-        # Verify resource exists
-        resource = db.query(Content).filter(Content.id == annotation.resource_id).first()
-        if not resource:
-            raise HTTPException(status_code=404, detail="Resource not found")
-        
-        # Check if annotation already exists (for bookmarks)
-        if annotation.annotation_type == AnnotationType.BOOKMARK:
-            existing = db.query(Annotation).filter(
-                Annotation.user_id == user.id,
-                Annotation.resource_id == annotation.resource_id,
-                Annotation.annotation_type == AnnotationType.BOOKMARK
-            ).first()
-            if existing:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Resource already bookmarked"
-                )
-        
-        # Create annotation
-        db_annotation = Annotation(
-            user_id=user.id,
-            resource_id=annotation.resource_id,
-            annotation_type=annotation.annotation_type,
-            highlighted_text=annotation.highlighted_text[:5000] if annotation.highlighted_text else None,
-            content=annotation.content[:10000] if annotation.content else None,
-            position=annotation.position,
-            is_public=annotation.is_public or False,
-            created_at=datetime.utcnow()
-        )
-        
-        db.add(db_annotation)
-        db.commit()
-        db.refresh(db_annotation)
-        
-        logger.info(f"Annotation created: {db_annotation.id} by user {user.id}")
-        return db_annotation
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Error creating annotation: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create annotation")
+    # Verify resource exists
+    resource = db.query(Content).filter(Content.id == annotation.resource_id).first()
+    if not resource:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    
+    # Check if annotation already exists (for bookmarks)
+    if annotation.annotation_type == AnnotationType.BOOKMARK:
+        existing = db.query(Annotation).filter(
+            Annotation.user_id == user.id,
+            Annotation.resource_id == annotation.resource_id,
+            Annotation.annotation_type == AnnotationType.BOOKMARK
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Resource already bookmarked"
+            )
+    
+    # Create annotation
+    db_annotation = Annotation(
+        user_id=user.id,
+        resource_id=annotation.resource_id,
+        annotation_type=annotation.annotation_type,
+        highlighted_text=annotation.highlighted_text,
+        content=annotation.content,
+        position=annotation.position,
+        is_public=annotation.is_public or False,
+        created_at=datetime.utcnow()
+    )
+    
+    db.add(db_annotation)
+    db.commit()
+    db.refresh(db_annotation)
+    
+    return db_annotation
 
 
 # ============================================================================
@@ -101,7 +85,7 @@ async def list_user_annotations(
     resource_id: Optional[int] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    current_user_email: str = Depends(get_current_user),
+    current_user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -113,47 +97,36 @@ async def list_user_annotations(
     - skip: Pagination offset
     - limit: Pagination limit
     """
-    import logging
-    logger = logging.getLogger(__name__)
+    user = db.query(User).filter(User.username == current_user).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
     
-    try:
-        user = db.query(User).filter(User.email == current_user_email).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        query = db.query(Annotation).filter(Annotation.user_id == user.id)
-        
-        # Apply filters
-        if annotation_type:
-            query = query.filter(Annotation.annotation_type == annotation_type)
-        
-        if resource_id:
-            if resource_id <= 0:
-                raise HTTPException(status_code=400, detail="Invalid resource ID")
-            query = query.filter(Annotation.resource_id == resource_id)
-        
-        annotations = query\
-            .order_by(Annotation.created_at.desc())\
-            .offset(skip)\
-            .limit(limit)\
-            .all()
-        
-        return annotations
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error listing annotations: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve annotations")
+    query = db.query(Annotation).filter(Annotation.user_id == user.id)
+    
+    # Apply filters
+    if annotation_type:
+        query = query.filter(Annotation.annotation_type == annotation_type)
+    
+    if resource_id:
+        query = query.filter(Annotation.resource_id == resource_id)
+    
+    annotations = query\
+        .order_by(Annotation.created_at.desc())\
+        .offset(skip)\
+        .limit(limit)\
+        .all()
+    
+    return annotations
 
 
 @router.get("/{annotation_id}", response_model=AnnotationRead)
 async def get_annotation(
     annotation_id: int,
-    current_user_email: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(SessionLocal)
 ):
     """Get a specific annotation."""
-    user = db.query(User).filter(User.email == current_user_email).first()
+    user = db.query(User).filter(User.username == current_user).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     
@@ -173,7 +146,7 @@ async def get_resource_bookmarks(
     resource_id: int,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db)
+    db: Session = Depends(SessionLocal)
 ):
     """
     Get all public bookmarks for a resource.
@@ -203,7 +176,7 @@ async def get_resource_highlights(
     resource_id: int,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db)
+    db: Session = Depends(SessionLocal)
 ):
     """
     Get all public highlights for a resource.
@@ -235,11 +208,11 @@ async def get_resource_highlights(
 async def update_annotation(
     annotation_id: int,
     annotation_update: AnnotationUpdate,
-    current_user_email: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(SessionLocal)
 ):
     """Update an annotation."""
-    user = db.query(User).filter(User.email == current_user_email).first()
+    user = db.query(User).filter(User.username == current_user).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     
@@ -279,11 +252,11 @@ async def update_annotation(
 @router.delete("/{annotation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_annotation(
     annotation_id: int,
-    current_user_email: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(SessionLocal)
 ):
     """Delete an annotation."""
-    user = db.query(User).filter(User.email == current_user_email).first()
+    user = db.query(User).filter(User.username == current_user).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     
@@ -304,11 +277,11 @@ async def delete_annotation(
 @router.delete("/resource/{resource_id}/bookmarks", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_bookmark(
     resource_id: int,
-    current_user_email: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(SessionLocal)
 ):
     """Remove all bookmarks (user's bookmark only) for a resource."""
-    user = db.query(User).filter(User.email == current_user_email).first()
+    user = db.query(User).filter(User.username == current_user).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     
@@ -332,14 +305,14 @@ async def remove_bookmark(
 @router.post("/batch", response_model=List[AnnotationRead])
 async def batch_create_annotations(
     annotations: List[AnnotationCreate],
-    current_user_email: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(SessionLocal)
 ):
     """
     Create multiple annotations in one request.
     Useful for bulk bookmarking or highlighting.
     """
-    user = db.query(User).filter(User.email == current_user_email).first()
+    user = db.query(User).filter(User.username == current_user).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     
@@ -378,11 +351,11 @@ async def batch_create_annotations(
 
 @router.get("/stats/summary", response_model=dict)
 async def get_annotation_stats(
-    current_user_email: str = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(SessionLocal)
 ):
     """Get annotation statistics for current user."""
-    user = db.query(User).filter(User.email == current_user_email).first()
+    user = db.query(User).filter(User.username == current_user).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     

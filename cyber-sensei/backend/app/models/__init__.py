@@ -5,6 +5,7 @@ from .knowledge import KnowledgeDocument
 from .document import Document
 from .quiz import QuizQuestion, QuizOption
 from .annotation import Annotation, AnnotationType
+from .gamification import Badge, UserBadge
 
 __all__ = [
     'User',
@@ -21,4 +22,6 @@ __all__ = [
     'QuizOption',
     'Annotation',
     'AnnotationType',
+    'Badge',
+    'UserBadge',
 ]

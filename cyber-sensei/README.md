@@ -2,17 +2,32 @@
 
 > Intelligent learning system for cybersecurity education using AI-powered personalized learning paths, knowledge ingestion, and interactive labs.
 
-## 📋 Overview
+NOTE: Docker and Docker Compose files were removed from this repository to support local development without container tooling. Use the local development instructions below to run backend and frontend directly on your machine.
 
-CYBER-SENSEI is a complete AI-powered educational platform designed to teach cybersecurity through:
+## Quick Local Development
 
-- **Personalized Learning**: AI recommendation engine adapts content to learner's pace and style
-- **Knowledge Base**: Ingest documents, videos, and PDFs with automatic transcription and Whisper speech-to-text
-- **Interactive Labs**: Hands-on cybersecurity exercises with validation
-- **Quiz Engine**: Adaptive quizzes with progress tracking using Bayesian Knowledge Tracing (BKT)
-- **Real-time Chat**: WebSocket-based learning assistant powered by LLMs via LangChain and Ollama
-- **Full-text Search**: Elasticsearch-powered semantic search across all knowledge resources
-- **Async Task Processing**: Celery workers for background jobs (transcription, recommendations, indexing)
+Backend:
+
+```bash
+cd backend
+python -m venv venv
+# Windows: venv\Scripts\activate
+# macOS/Linux: source venv/bin/activate
+pip install -r requirements.txt
+export PYTHONPATH=$(pwd)
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+# Opens on http://localhost:5173
+```
+
+Or use the helper script `run_local.sh` at the repository root to start the backend.
 
 ---
 
@@ -605,84 +620,92 @@ pip install -r requirements.txt
 ### Adding a New Endpoint
 
 1. **Create Schema** (`backend/app/schemas/your_feature.py`):
-```python
-from pydantic import BaseModel
 
-class YourRequestSchema(BaseModel):
-    field1: str
-    field2: int
+    ```python
+    from pydantic import BaseModel
 
-class YourResponseSchema(BaseModel):
-    id: int
-    field1: str
-```
+    class YourRequestSchema(BaseModel):
+        field1: str
+        field2: int
+
+    class YourResponseSchema(BaseModel):
+        id: int
+        field1: str
+    ```
 
 2. **Create Model** (`backend/app/models/your_feature.py`):
-```python
-from sqlalchemy import Column, String, Integer
-from .base import Base
 
-class YourModel(Base):
-    __tablename__ = "your_table"
-    id = Column(Integer, primary_key=True)
-    field1 = Column(String)
-```
+    ```python
+    from sqlalchemy import Column, String, Integer
+    from .base import Base
+
+    class YourModel(Base):
+        __tablename__ = "your_table"
+        id = Column(Integer, primary_key=True)
+        field1 = Column(String)
+    ```
 
 3. **Create Router** (`backend/app/routers/your_feature.py`):
-```python
-from fastapi import APIRouter, Depends
-from ..schemas.your_feature import YourRequestSchema, YourResponseSchema
-from ..database import get_db
 
-router = APIRouter(prefix="/your-feature", tags=["your-feature"])
+    ```python
+    from fastapi import APIRouter, Depends
+    from ..schemas.your_feature import YourRequestSchema, YourResponseSchema
+    from ..database import get_db
 
-@router.post("/", response_model=YourResponseSchema)
-def create_item(req: YourRequestSchema, db: Session = Depends(get_db)):
-    # Implementation
-    return {"id": 1, "field1": req.field1}
-```
+    router = APIRouter(prefix="/your-feature", tags=["your-feature"])
+
+    @router.post("/", response_model=YourResponseSchema)
+    def create_item(req: YourRequestSchema, db: Session = Depends(get_db)):
+        # Implementation
+        return {"id": 1, "field1": req.field1}
+    ```
 
 4. **Include Router** in `backend/app/main.py`:
-```python
-from .routers import your_feature
-app.include_router(your_feature.router)
-```
+
+    ```python
+    from .routers import your_feature
+    app.include_router(your_feature.router)
+    ```
 
 5. **Write Tests** (`backend/tests/test_your_feature.py`):
-```python
-def test_create_item(client):
-    response = client.post("/your-feature/", json={"field1": "test", "field2": 42})
-    assert response.status_code == 200
-```
+
+    ```python
+    def test_create_item(client):
+        response = client.post("/your-feature/", json={"field1": "test", "field2": 42})
+        assert response.status_code == 200
+    ```
 
 ### Adding a New Frontend Component
 
 1. **Create Component** (`frontend/src/components/YourComponent.jsx`):
-```jsx
-export default function YourComponent({ prop1 }) {
-  return <div>{prop1}</div>;
-}
-```
+
+    ```jsx
+    export default function YourComponent({ prop1 }) {
+      return <div>{prop1}</div>;
+    }
+    ```
 
 2. **Add to Page**:
-```jsx
-import YourComponent from '../components/YourComponent';
 
-export default function MyPage() {
-  return <YourComponent prop1="value" />;
-}
-```
+    ```jsx
+    import YourComponent from '../components/YourComponent';
+
+    export default function MyPage() {
+      return <YourComponent prop1="value" />;
+    }
+    ```
 
 3. **Add Tests** (`frontend/src/__tests__/YourComponent.test.jsx`):
-```javascript
-import { render, screen } from '@testing-library/react';
-import YourComponent from '../components/YourComponent';
 
-test('renders component', () => {
-  render(<YourComponent prop1="test" />);
-  expect(screen.getByText('test')).toBeInTheDocument();
-});
-```
+    ```javascript
+    import { render, screen } from '@testing-library/react';
+    import YourComponent from '../components/YourComponent';
+
+    test('renders component', () => {
+      render(<YourComponent prop1="test" />);
+      expect(screen.getByText('test')).toBeInTheDocument();
+    });
+    ```
 
 ---
 

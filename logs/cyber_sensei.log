@@ -1,0 +1,28 @@
+2026-01-07 23:20:25 - root - INFO - Logging initialized at level INFO
+2026-01-07 23:20:25 - root - INFO - Log files: D:\CYBER-SENSEI\logs
+2026-01-07 23:21:16 - tensorflow - WARNING - From C:\Users\eric\AppData\Local\Programs\Python\Python311\Lib\site-packages\keras\src\losses.py:2976: The name tf.losses.sparse_softmax_cross_entropy is deprecated. Please use tf.compat.v1.losses.sparse_softmax_cross_entropy instead.
+
+2026-01-07 23:21:18 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2026-01-07 23:21:18 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2026-01-07 23:21:25 - root - INFO - Logging initialized at level INFO
+2026-01-07 23:21:25 - root - INFO - Logging initialized at level INFO
+2026-01-07 23:21:25 - root - INFO - Log files: D:\CYBER-SENSEI\logs
+2026-01-07 23:21:25 - root - INFO - Log files: D:\CYBER-SENSEI\logs
+2026-01-07 23:21:25 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2026-01-07 23:21:25 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2026-01-07 23:21:25 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2026-01-07 23:21:25 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2026-01-07 23:21:47 - root - INFO - Logging initialized at level INFO
+2026-01-07 23:21:47 - root - INFO - Log files: D:\CYBER-SENSEI\logs
+2026-01-07 23:22:01 - tensorflow - WARNING - From C:\Users\eric\AppData\Local\Programs\Python\Python311\Lib\site-packages\keras\src\losses.py:2976: The name tf.losses.sparse_softmax_cross_entropy is deprecated. Please use tf.compat.v1.losses.sparse_softmax_cross_entropy instead.
+
+2026-01-07 23:22:03 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2026-01-07 23:22:03 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2026-01-07 23:22:10 - root - INFO - Logging initialized at level INFO
+2026-01-07 23:22:10 - root - INFO - Logging initialized at level INFO
+2026-01-07 23:22:10 - root - INFO - Log files: D:\CYBER-SENSEI\logs
+2026-01-07 23:22:10 - root - INFO - Log files: D:\CYBER-SENSEI\logs
+2026-01-07 23:22:10 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2026-01-07 23:22:10 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2026-01-07 23:22:10 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2026-01-07 23:22:10 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2

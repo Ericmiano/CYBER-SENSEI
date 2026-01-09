@@ -2,7 +2,7 @@
 Enhanced Pydantic schemas for all Cyber-Sensei entities with complete validation.
 """
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 from datetime import datetime
 from enum import Enum
@@ -40,12 +40,12 @@ class ModuleCreate(BaseModel):
     description: str = Field(..., min_length=1, max_length=2000)
     icon: Optional[str] = None
     color: Optional[str] = Field(default="#3498db", pattern="^#[0-9A-Fa-f]{6}$")
-    
-    @validator("name")
+
+    @field_validator("name")
     def name_not_empty(cls, v):
-        if not v.strip():
+        if not v or not str(v).strip():
             raise ValueError("Module name cannot be empty")
-        return v.strip()
+        return str(v).strip()
 
 
 class ModuleUpdate(BaseModel):
@@ -64,7 +64,7 @@ class ModuleRead(BaseModel):
     created_by: str
     created_at: datetime
     updated_at: Optional[datetime]
-    
+
     class Config:
         from_attributes = True
 
@@ -77,12 +77,12 @@ class TopicCreate(BaseModel):
     module_id: int
     order: int = Field(default=0, ge=0)
     difficulty: DifficultyEnum = DifficultyEnum.intermediate
-    
-    @validator("name")
+
+    @field_validator("name")
     def name_not_empty(cls, v):
-        if not v.strip():
+        if not v or not str(v).strip():
             raise ValueError("Topic name cannot be empty")
-        return v.strip()
+        return str(v).strip()
 
 
 class TopicUpdate(BaseModel):
@@ -102,7 +102,7 @@ class TopicRead(BaseModel):
     created_by: str
     created_at: datetime
     updated_at: Optional[datetime]
-    
+
     class Config:
         from_attributes = True
 
@@ -117,10 +117,10 @@ class ResourceCreate(BaseModel):
     topic_id: int
     file_size: Optional[int] = None
     mime_type: Optional[str] = None
-    
-    @validator("url")
+
+    @field_validator("url")
     def validate_url(cls, v):
-        if not v.startswith(("http://", "https://", "/")):
+        if not isinstance(v, str) or not v.startswith(("http://", "https://", "/")):
             raise ValueError("URL must be valid HTTP/HTTPS or relative path")
         return v
 
@@ -143,7 +143,7 @@ class ResourceRead(BaseModel):
     uploaded_at: datetime
     file_size: Optional[int]
     mime_type: Optional[str]
-    
+
     class Config:
         from_attributes = True
 
@@ -172,8 +172,8 @@ class QuizQuestionCreate(BaseModel):
     explanation: Optional[str] = Field(None, max_length=3000)
     topic_id: int
     options: List[QuizOptionCreate] = Field(..., min_items=2, max_items=6)
-    
-    @validator("options")
+
+    @field_validator("options")
     def validate_options(cls, v):
         # Ensure at least one correct answer
         if not any(opt.is_correct for opt in v):
@@ -201,7 +201,7 @@ class QuizQuestionRead(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
     options: List[QuizOptionRead]
-    
+
     class Config:
         from_attributes = True
 
@@ -212,12 +212,12 @@ class ProjectCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=500)
     description: Optional[str] = Field(None, max_length=3000)
     status: ProjectStatusEnum = ProjectStatusEnum.planning
-    
-    @validator("name")
+
+    @field_validator("name")
     def name_not_empty(cls, v):
-        if not v.strip():
+        if not v or not str(v).strip():
             raise ValueError("Project name cannot be empty")
-        return v.strip()
+        return str(v).strip()
 
 
 class ProjectUpdate(BaseModel):
@@ -234,7 +234,7 @@ class ProjectRead(BaseModel):
     status: str
     created_at: datetime
     updated_at: Optional[datetime]
-    
+
     class Config:
         from_attributes = True
 
@@ -247,7 +247,7 @@ class UserProgressRead(BaseModel):
     topic_id: int
     completion_percentage: int
     last_accessed: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -273,7 +273,7 @@ class UserProfileRead(BaseModel):
     bio: Optional[str]
     created_at: datetime
     preferences: Optional[UserPreferencesBase]
-    
+
     class Config:
         from_attributes = True
 

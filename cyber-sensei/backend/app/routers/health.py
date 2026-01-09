@@ -24,7 +24,7 @@ async def health_check():
     """
     from datetime import datetime
     return {
-        "status": "healthy",
+        "status": "ok",
         "service": "cyber-sensei-backend",
         "version": "2.0.0",
         "timestamp": datetime.utcnow().isoformat() + "Z"

@@ -15,6 +15,12 @@ router = APIRouter(prefix="/api/labs", tags=["labs"])
 lab_manager = LabManager()
 
 
+@router.get("")
+def list_labs(db: Session = Depends(get_db)):
+    """List available labs."""
+    return list(lab_manager._LAB_LIBRARY.keys())
+
+
 @router.get("/modules", response_model=list[LabModuleResponse])
 def get_lab_modules(db: Session = Depends(get_db)):
     """Get all lab modules."""

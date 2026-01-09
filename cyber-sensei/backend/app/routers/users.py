@@ -172,6 +172,12 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
         )
 
 
+@router.get("", response_model=List[UserResponse])
+def list_users(db: Session = Depends(get_db)):
+    """List all users (admin endpoint)."""
+    return db.query(User).all()
+
+
 @router.get("/{username}", response_model=UserResponse)
 def get_user(username: str, db: Session = Depends(get_db)):
     """Get user profile by username."""
