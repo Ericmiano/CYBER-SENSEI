@@ -77,3 +77,4 @@ FRESH_AUDIT*.md
 # Dead code that was removed
 ml_personalization.py
 DashboardPageEnhanced.jsx
+.vs/
